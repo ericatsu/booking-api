@@ -4,10 +4,9 @@ const graphqlHttp = require('express-graphql').graphqlHTTP;
 const { buildSchema } = require('graphql');
 const mongoose = require('mongoose');
 
+const Event = require('./models/event');
 
 const app = express();
-
-const events = [];
 
 app.use(bodyParser.json());
 
@@ -41,25 +40,38 @@ app.use('/graphql', graphqlHttp({
        }
     `),
     rootValue: {
-        events: () => {
-            return events;
+        events: async () => {
+            try {
+                const events = await Event.find();
+                return events.map(event => {
+                    return { ...event._doc, _id: event.id };
+                });
+            } catch (err) {
+                throw err;
+            }
         },
-        createEvent: (args) => {
-            const event = {
-                _id: Math.random().toString(),
+        createEvent: async (args) => {
+            const event = new Event({
                 title: args.eventInput.title,
                 description: args.eventInput.description,
                 price: +args.eventInput.price,
-                date: args.eventInput.date
-            };
-            events.push(event);
-            return event;
+                date: new Date(args.eventInput.date)
+            });
+           try {
+                const result = await event.save();
+                console.log(result);
+                return { ...result._doc, _id: result._doc._id.toString() };
+            } catch (err) {
+                console.log(err);
+                throw err;
+            }
+            
         }
     },
     graphiql: true,
 }));
 
-mongoose.connect('mongodb+srv://lester:XgRi7xtTi2Cg8JD0@cluster0.5ewcuzr.mongodb.net/?retryWrites=true&w=majority')
+mongoose.connect('mongodb+srv://lester:XgRi7xtTi2Cg8JD0@cluster0.5ewcuzr.mongodb.net/booking-api?retryWrites=true&w=majority')
 .then(() => {
     app.listen(3000);
 }).catch(err => {
